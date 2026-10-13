@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cổng tiếp nhận báo cáo trực tuyến - Đảng ủy Phường Ninh Kiều</title>
+  
+  <!-- Tailwind CSS & FontAwesome Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js & SheetJS (Excel) & JSZip (Nén tải hàng loạt) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- SUPABASE JS -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.48.1/dist/umd/supabase.js"></script>
+
+  <style>
+    .bg-mttq { background: linear-gradient(135deg, #8B0000 0%, #A50000 100%); }
+    .bg-mttq-dark { background-color: #6d0202; }
+    .active-nav-btn { background-color: #ffffff !important; color: #8B0000 !important; font-weight: bold !important; }
+    .active-period-btn { border-color: #dc2626 !important; background-color: #fef2f2 !important; color: #dc2626 !important; font-weight: bold !important; }
+    .active-status-btn { background-color: #8B0000 !important; color: #ffffff !important; }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+  <!-- ================= HEADER CHÍNH ================= -->
+  <header class="bg-mttq text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+      
+      <!-- CỤM TIÊU ĐỀ BÊN TRÁI (KHÔNG BỊ CO ÉP, LUÔN NẰM TRÊN 1 HÀNG) -->
+      <div class="shrink-0">
+        <span class="inline-block bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-yellow-400 mb-1">
+          <i class="fa-solid fa-bullseye text-[9px] mr-1"></i> HỆ THỐNG CHUYỂN ĐỔI SỐ
+        </span>
+        <!-- Đổi thành h2, giảm cỡ chữ vừa vặn và khóa 1 hàng duy nhất -->
+        <h2 class="text-base sm:text-lg lg:text-xl font-black uppercase whitespace-nowrap tracking-tight">
+          ĐẢNG ỦY PHƯỜNG NINH KIỀU - THÀNH PHỐ CẦN THƠ
+        </h2>
+        <p class="text-[11px] sm:text-xs text-red-100 font-light mt-0.5">
+          Cổng Tiếp nhận &amp; Theo dõi tiến độ nộp báo cáo trực tuyến
+        </p>
+      </div>
+
+      <!-- CỤM THỐNG KÊ BÊN PHẢI (CĂN PHẢI, KHOẢNG CÁCH NHỎ GỌN) -->
+      <div id="headerMetricsContainer" class="flex flex-wrap items-center justify-start lg:justify-end gap-1.5 w-full lg:w-auto">
+        <div class="bg-black/25 border border-white/10 rounded-md py-1 px-2.5 text-center animate-pulse">
+          <span class="text-[10px] text-gray-300 block">ĐANG TẢI...</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= THANH MENU ================= -->
+  <div class="bg-mttq-dark text-white border-t border-red-800 sticky top-0 z-40 shadow">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="bg-emerald-600 text-white text-xs px-2.5 py-1 rounded font-bold uppercase mr-1">
+          <i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Trực Tuyến
+        </span>
+        
+        <button id="navHomeBtn" onclick="switchTab('home')" class="active-nav-btn text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition">
+          <i class="fa-solid fa-house"></i> Trang Chủ
+        </button>
+
+        <button id="navPeriodicBtn" onclick="switchTab('periodic')" class="hover:bg-white/10 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 transition">
+          <i class="fa-solid fa-calendar-check"></i> Báo cáo định kỳ
+        </button>
+        
+        <button id="adminTabBtn" onclick="toggleAdminModal()" class="hidden bg-yellow-400 hover:bg-yellow-300 text-gray-900 px-3 py-1.5 rounded text-xs font-bold items-center gap-1.5 shadow border border-yellow-200">
+          <i class="fa-solid fa-shield-halved text-red-700"></i> Cấu hình hệ thống (Admin)
+        </button>
+      </div>
+
+      <!-- Nút Đăng nhập / Đăng xuất -->
+      <div>
+        <button id="authBtn" type="button" onclick="handleAuthClick()" class="bg-red-800 hover:bg-red-700 border border-red-500 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 shadow transition">
+          <i class="fa-solid fa-lock" id="authIcon"></i> <span id="authText">Đăng nhập</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 1. TAB TRANG CHỦ (DASHBOARD) ================= -->
+  <main id="tabHome" class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- THANH CÔNG CỤ LỌC KỲ BÁO CÁO & TIỆN ÍCH DÀNH CHO ADMIN -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+        <span class="text-xs font-bold text-gray-700 uppercase flex items-center gap-1.5 shrink-0">
+          <i class="fa-solid fa-filter text-red-600"></i> Lọc Kỳ Báo Cáo:
+        </span>
+        
+        <select id="dashPeriodType" onchange="handleDashPeriodTypeChange()" class="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-700 bg-gray-50 outline-none cursor-pointer">
+          <option value="month">Xem theo Tháng</option>
+          <option value="quarter">Xem theo Quý</option>
+          <option value="year">Xem theo Năm</option>
+          <option value="all">Tất cả các kỳ</option>
+        </select>
+
+        <select id="dashPeriodSelect" onchange="loadDynamicDashboard()" class="border border-red-300 rounded-lg px-3 py-1.5 text-xs font-bold text-red-700 bg-red-50/40 outline-none cursor-pointer">
+        </select>
+
+        <div class="flex items-center rounded-lg border border-gray-200 p-0.5 bg-gray-50 text-[11px]">
+          <button type="button" onclick="setFilterStatus('all')" id="btnFilter_all" class="active-status-btn px-2.5 py-1 rounded font-bold transition">Tất cả</button>
+          <button type="button" onclick="setFilterStatus('submitted')" id="btnFilter_submitted" class="px-2.5 py-1 rounded font-semibold text-emerald-700 hover:bg-white transition">Đã nộp</button>
+          <button type="button" onclick="setFilterStatus('late')" id="btnFilter_late" class="px-2.5 py-1 rounded font-semibold text-rose-700 hover:bg-white transition">Gởi trễ</button>
+          <button type="button" onclick="setFilterStatus('pending')" id="btnFilter_pending" class="px-2.5 py-1 rounded font-semibold text-amber-700 hover:bg-white transition">Chưa nộp</button>
+        </div>
+      </div>
+
+      <!-- KHU VỰC TIỆN ÍCH DÀNH RIÊNG CHO ADMIN (GIÁM SÁT BỘ NHỚ & TẢI ZIP) -->
+      <div class="flex flex-wrap items-center gap-2.5 shrink-0 w-full lg:w-auto justify-end">
+        <!-- Dung lượng Supabase Storage -->
+        <div id="adminStorageBadge" class="hidden items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-900 shadow-sm" title="Dung lượng đã sử dụng trên gói miễn phí 1GB của Supabase">
+          <i class="fa-solid fa-hard-drive text-indigo-600"></i>
+          <span>Bộ nhớ: <b class="text-indigo-700" id="headerStorageUsed">0 MB</b> / 1,000 MB</span>
+          <span id="headerStoragePercent" class="bg-indigo-200 text-indigo-800 text-[10px] px-1.5 py-0.2 rounded font-mono">0%</span>
+        </div>
+
+        <!-- Nút Tải Hàng Loạt ZIP -->
+        <div id="btnBatchDownloadMain" class="hidden items-center gap-2">
+          <button onclick="openBatchDownloadModal()" class="bg-blue-700 hover:bg-blue-800 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow transition">
+            <i class="fa-solid fa-file-zipper text-yellow-300 text-sm"></i> Tải Về Hàng Loạt (.ZIP)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 THẺ THỐNG KÊ -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-red-100 text-red-700 flex items-center justify-center text-xl"><i class="fa-solid fa-building-columns"></i></div>
+        <div><p class="text-xs font-semibold text-gray-500">Tổng Số Đơn Vị</p><p class="text-2xl font-bold text-gray-800" id="totalUnits">0</p></div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl"><i class="fa-solid fa-circle-check"></i></div>
+        <div>
+          <p class="text-xs font-semibold text-gray-500">Đã Nộp Báo Cáo</p>
+          <div class="flex items-baseline gap-2">
+            <span class="text-2xl font-bold text-emerald-600" id="submittedUnits">0</span>
+            <span class="text-[11px] text-gray-500" id="onTimeAndLateSubtext">(0 đúng hạn, 0 trễ)</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xl"><i class="fa-solid fa-clock"></i></div>
+        <div><p class="text-xs font-semibold text-gray-500">Chưa Nộp Báo Cáo</p><p class="text-2xl font-bold text-amber-600" id="pendingUnits">0</p></div>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex items-center gap-3">
+        <div class="w-12 h-12 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-xl"><i class="fa-solid fa-chart-line"></i></div>
+        <div><p class="text-xs font-semibold text-gray-500">Tỷ Lệ Hoàn Thành</p><p class="text-2xl font-bold text-rose-600" id="completionRate">0%</p></div>
+      </div>
+    </div>
+
+    <!-- KHU VỰC BIỂU ĐỒ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-5 bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xs font-bold uppercase text-gray-700"><i class="fa-solid fa-chart-pie text-red-600 mr-1"></i> Tỷ Lệ Tiến Độ Kỳ Được Chọn</h3>
+          <span class="text-xs text-gray-400" id="chartTotalLabel">0 Đơn vị</span>
+        </div>
+        <div class="relative w-48 h-48 mx-auto"><canvas id="donutChart"></canvas></div>
+        <div class="flex justify-center gap-6 mt-4 text-xs font-medium">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span> Đã Nộp</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-amber-500 rounded-full inline-block"></span> Chưa Nộp</span>
+        </div>
+      </div>
+
+      <div class="lg:col-span-7 bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xs font-bold uppercase text-gray-700"><i class="fa-solid fa-chart-simple text-red-600 mr-1"></i> Tiến Độ Theo Khối Đơn Vị</h3>
+          <span class="text-xs text-gray-400">Số lượng nộp</span>
+        </div>
+        <div class="w-full h-56"><canvas id="barChart"></canvas></div>
+        <div class="flex justify-center gap-6 mt-4 text-xs font-medium">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-emerald-500 rounded-sm inline-block"></span> Đã nộp</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 bg-gray-200 rounded-sm inline-block"></span> Chưa nộp</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- BẢNG DANH SÁCH CHI TIẾT -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <h3 class="text-xs font-bold uppercase text-gray-700 flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-red-600"></i> Chi Tiết Tiến Độ Báo Cáo Các Đơn Vị
+        </h3>
+        <span id="unitTableCount" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-semibold">0 đơn vị</span>
+      </div>
+      <div class="overflow-x-auto text-xs">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-semibold">
+              <th class="p-3">STT</th>
+              <th class="p-3">Tên Đơn Vị</th>
+              <th class="p-3">Khối Trực Thuộc</th>
+              <th class="p-3">Tên Đăng Nhập</th>
+              <th class="p-3">Trạng Thái</th>
+              <th class="p-3">Ngày Giờ Nộp</th>
+              <th class="p-3 text-center">Thao Tác / File Đã Nộp</th>
+            </tr>
+          </thead>
+          <tbody id="unitTableBody" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 2. TAB BÁO CÁO ĐỊNH KỲ ================= -->
+  <main id="tabPeriodic" class="max-w-7xl mx-auto px-4 py-6 hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="lg:col-span-8 bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-5">
+        <h2 class="text-sm font-bold uppercase text-gray-800 flex items-center gap-2 border-b pb-3">
+          <i class="fa-solid fa-cloud-arrow-up text-red-600 text-base"></i> Gửi Báo Cáo Định Kỳ
+        </h2>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-bold text-gray-700">1. ĐƠN VỊ GỬI BÁO CÁO <span class="text-red-500">*</span></label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 text-xs"><i class="fa-solid fa-building"></i></span>
+            <input type="text" id="reportSenderUnit" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 text-xs text-gray-800 font-semibold outline-none cursor-not-allowed" value="Vui lòng đăng nhập đơn vị của bạn">
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-xs font-bold text-gray-700">2. LOẠI KỲ BÁO CÁO <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <button type="button" onclick="selectPeriodType('month')" id="btnPeriodMonth" class="active-period-btn border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 transition"><i class="fa-solid fa-calendar-days text-sm"></i><span>Tháng</span></button>
+            <button type="button" onclick="selectPeriodType('quarter')" id="btnPeriodQuarter" class="border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 text-gray-600 hover:bg-gray-50 transition"><i class="fa-solid fa-calendar-check text-sm"></i><span>Quý</span></button>
+            <button type="button" onclick="selectPeriodType('year')" id="btnPeriodYear" class="border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 text-gray-600 hover:bg-gray-50 transition"><i class="fa-solid fa-calendar text-sm"></i><span>Năm</span></button>
+          </div>
+        </div>
+
+        <div class="bg-gray-50/50 p-4 rounded-xl border border-gray-200 space-y-3">
+          <label class="block text-xs font-bold text-gray-700 uppercase">Chi Tiết Thời Gian <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div>
+              <span class="block text-[11px] text-gray-500 mb-1" id="periodSubLabel">Thời Gian (Tháng)</span>
+              <select id="periodValue" onchange="updateFileUploadDisplay()" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 outline-none font-semibold text-gray-700 cursor-pointer"></select>
+            </div>
+            <div>
+              <span class="block text-[11px] text-gray-500 mb-1">Loại Báo Cáo</span>
+              <select id="reportCategory" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 outline-none font-semibold text-gray-700 cursor-pointer">
+                <option value="Định kỳ">Định kỳ</option>
+                <option value="Chuyên đề">Chuyên đề</option>
+                <option value="Đột xuất">Đột xuất</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="deadlineContainer" class="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2 text-[11px] text-amber-800 transition">
+            <i class="fa-solid fa-clock text-amber-600" id="deadlineIcon"></i>
+            <span id="deadlineText">Kỳ báo cáo hiện chưa cài đặt thời hạn gửi.</span>
+          </div>
+        </div>
+
+        <!-- MỤC 3: ĐÍNH KÈM NHIỀU FILE BÁO CÁO -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block text-xs font-bold text-gray-700">3. ĐÍNH KÈM FILE BÁO CÁO (CÓ THỂ CHỌN NHIỀU FILE) <span class="text-red-500">*</span></label>
+            <span class="text-[11px] text-blue-600 font-semibold"><i class="fa-solid fa-circle-info"></i> Giữ Ctrl/Shift để chọn nhiều tệp</span>
+          </div>
+          
+          <div id="dropZoneContainer" onclick="triggerFileInput()" class="border-2 border-dashed border-gray-300 hover:border-red-400 bg-gray-50/50 rounded-xl p-6 text-center cursor-pointer transition">
+            <input type="file" id="reportFileInput" multiple onchange="handleReportFileSelect(event)" class="hidden">
+            <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2 text-xl pointer-events-none">
+              <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            <p class="text-xs font-bold text-gray-700 pointer-events-none">Nhấn để chọn file hoặc kéo thả file vào đây</p>
+            <p class="text-[10px] text-gray-500 mt-1 pointer-events-none">Hỗ trợ chọn nhiều lần cộng dồn • Word, Excel, PDF, Zip... (Tối đa 25MB/tệp)</p>
+          </div>
+
+          <!-- Danh sách các file đính kèm -->
+          <div id="selectedFilesList" class="space-y-1.5 mt-2 hidden"></div>
+        </div>
+
+        <button type="button" id="btnSubmitReport" onclick="submitReportToSupabase()" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 rounded-lg text-xs uppercase shadow flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo
+        </button>
+
+        <div id="reportStatusMessage" class="hidden text-center text-xs font-bold p-3 rounded-lg"></div>
+      </div>
+
+      <div class="lg:col-span-4 space-y-5 text-xs">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-3">
+          <h3 class="font-bold text-gray-800 flex items-center gap-2 uppercase"><i class="fa-solid fa-circle-question text-red-600"></i> Hướng Dẫn Nộp Báo Cáo</h3>
+          <ul class="space-y-3 text-gray-600 leading-relaxed">
+            <li class="flex items-start gap-2.5"><span class="w-4 h-4 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span><span>Đăng nhập <b>tài khoản đơn vị</b>.</span></li>
+            <li class="flex items-start gap-2.5"><span class="w-4 h-4 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span><span>Chọn <b>Loại kỳ báo cáo</b> và thời gian tương ứng.</span></li>
+            <li class="flex items-start gap-2.5"><span class="w-4 h-4 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span><span>Chọn <b>một hoặc nhiều tệp tin</b> đính kèm (Word chính, Excel biểu mẫu...). Hệ thống tự đánh số theo đơn vị.</span></li>
+            <li class="flex items-start gap-2.5"><span class="w-4 h-4 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span><span>Nhấn <b>"Gửi Báo cáo"</b> để hoàn thành.</span></li>
+          </ul>
+        </div>
+
+        <div class="bg-mttq p-5 rounded-xl text-white shadow space-y-3">
+          <h3 class="font-bold flex items-center gap-2 uppercase text-yellow-300"><i class="fa-solid fa-shield"></i> Lưu Ý Báo Cáo</h3>
+          <p class="text-[11px] leading-relaxed text-red-100">Các đơn vị có thể gửi kèm các phụ lục Word/Excel/PDF trong cùng 1 lần nộp.</p>
+          <div class="border-t border-red-500/40 pt-2 text-[11px] leading-relaxed text-red-200 italic">Các đơn vị vẫn phải gửi báo cáo trên Hệ thống điều hành tác nghiệp theo quy định!</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= POPUP FORM ĐĂNG NHẬP ================= -->
+  <div id="loginModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
+      <div class="bg-mttq p-4 text-white flex justify-between items-center">
+        <h3 class="font-bold text-sm"><i class="fa-solid fa-user-lock mr-1.5"></i> Đăng nhập hệ thống</h3>
+        <button onclick="toggleLoginModal()" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="handleLoginSubmit(event)" class="p-6 space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Tên đăng nhập:</label>
+          <input type="text" id="loginEmail" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600" placeholder="VD: khuvuc1 hoặc admin@cantho.gov.vn">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Mật khẩu:</label>
+          <input type="password" id="loginPassword" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600" placeholder="••••••••">
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded transition">Xác Nhận Đăng Nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL TẢI VỀ HÀNG LOẠT (.ZIP) ================= -->
+  <div id="batchDownloadModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="bg-blue-800 p-4 text-white flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-file-zipper text-yellow-300"></i> Tải Về Báo Cáo Hàng Loạt (.ZIP)</h3>
+        <button onclick="closeBatchDownloadModal()" class="text-white hover:text-gray-200 text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">1. Chọn Loại Báo Cáo:</label>
+          <select id="batchDownloadType" onchange="updateBatchPeriodOptions()" class="w-full border border-gray-300 rounded-lg p-2.5 font-semibold text-gray-800 outline-none">
+            <option value="month">Báo cáo Tháng</option>
+            <option value="quarter">Báo cáo Quý</option>
+            <option value="year">Báo cáo Năm</option>
+            <option value="all">Tất cả các loại kỳ</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">2. Chọn Năm Báo Cáo:</label>
+          <select id="batchDownloadYear" onchange="updateBatchPeriodOptions()" class="w-full border border-gray-300 rounded-lg p-2.5 font-semibold text-gray-800 outline-none"></select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">3. Chọn Kỳ Cụ Thể (Hoặc toàn bộ năm):</label>
+          <select id="batchDownloadDetail" class="w-full border border-gray-300 rounded-lg p-2.5 font-semibold text-gray-800 outline-none">
+            <option value="all">Tất cả các kỳ trong năm đã chọn</option>
+          </select>
+        </div>
+
+        <div id="batchDownloadStatus" class="hidden p-3 rounded-lg text-xs font-bold text-center"></div>
+
+        <button type="button" id="btnStartBatchDownload" onclick="executeBatchDownload()" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-lg shadow flex items-center justify-center gap-2 transition">
+          <i class="fa-solid fa-cloud-arrow-down"></i> Bắt Đầu Nén & Tải Về (.ZIP)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL ADMIN: CẤU HÌNH & QUẢN LÝ TOÀN DIỆN ================= -->
+  <div id="adminModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-mttq p-4 text-white flex justify-between items-center">
+        <h3 class="font-bold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-yellow-400"></i> Quản Trị Hệ Thống: Cấu Hình & Quản Lý Dữ Liệu
+        </h3>
+        <button onclick="toggleAdminModal()" class="text-white hover:text-gray-200 text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="p-6 space-y-6 text-xs overflow-y-auto">
+        
+        <!-- MỤC 1: CÀI ĐẶT THỜI HẠN NỘP BÁO CÁO -->
+        <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-3">
+          <h4 class="font-bold text-amber-900 flex items-center gap-1.5 uppercase"><i class="fa-solid fa-clock text-amber-700"></i> 1. Cài Đặt Thời Hạn Nộp Báo Cáo</h4>
+          <p class="text-[11px] text-amber-800">Để trống nếu không giới hạn thời gian nộp báo cáo.</p>
+          <div class="flex flex-col sm:flex-row gap-2.5 items-center">
+            <input type="datetime-local" id="adminDeadlineInput" class="w-full sm:w-auto flex-1 bg-white border border-gray-300 rounded-lg p-2.5 font-semibold text-gray-700 outline-none">
+            <button onclick="saveDeadlineSetting()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2.5 rounded-lg transition shadow">Lưu Thời Hạn</button>
+            <button onclick="clearDeadlineSetting()" type="button" class="w-full sm:w-auto bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold px-3 py-2.5 rounded-lg transition" title="Xóa bỏ thời hạn">Gỡ Hạn (Để Trống)</button>
+          </div>
+          <span id="saveDeadlineStatus" class="hidden text-[11px] font-bold text-green-700 block"></span>
+        </div>
+
+        <!-- MỤC 2: QUẢN LÝ NĂM BÁO CÁO -->
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3">
+          <h4 class="font-bold text-blue-900 flex items-center gap-1.5 uppercase">
+            <i class="fa-solid fa-calendar-days text-blue-700"></i> 2. Mở Rộng & Quản Lý Năm Báo Cáo (Thêm / Xóa Năm)
+          </h4>
+          <p class="text-gray-600 text-[11px]">Thêm năm mới sẽ tự kích hoạt từ <b>Tháng 01 đến Tháng 12</b>, <b>Quý 1 đến Quý 4</b>.</p>
+          <div class="flex flex-col sm:flex-row gap-3 items-center">
+            <input type="number" id="adminNewYearInput" placeholder="Nhập năm cần thêm (VD: 2031)" min="2020" max="2060" class="w-full sm:w-auto flex-1 bg-white border border-gray-300 rounded-lg p-2.5 font-semibold text-gray-700 outline-none">
+            <button onclick="handleAddNewSystemYear()" class="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white font-bold px-4 py-2.5 rounded-lg transition shadow flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Thêm Năm Vào Hệ Thống
+            </button>
+          </div>
+          <div class="pt-1">
+            <span class="text-[11px] font-semibold text-gray-600">Danh sách các năm hiện hành:</span>
+            <div id="adminYearBadgesContainer" class="flex flex-wrap gap-2 mt-2"></div>
+          </div>
+        </div>
+
+        <!-- MỤC 3: DỌN DẸP BỘ NHỚ SUPABASE STORAGE -->
+        <div class="bg-rose-50 border border-rose-300 p-4 rounded-xl space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-bold shrink-0">!</span>
+            <h4 class="font-bold text-rose-900 uppercase text-xs">
+              3. Giám Sát Dung Lượng & Dọn Dẹp Bộ Nhớ Supabase Storage
+            </h4>
+          </div>
+
+          <div class="bg-white p-3.5 rounded-xl border border-rose-200 space-y-2">
+            <div class="flex justify-between items-center text-xs font-bold text-gray-800">
+              <span class="flex items-center gap-1.5 text-indigo-900">
+                <i class="fa-solid fa-database text-indigo-600"></i> Dung Lượng Đang Dùng Trên Supabase:
+              </span>
+              <span class="text-sm font-black text-indigo-700">
+                <span id="modalStorageUsedText">Đang tính...</span> / 1,000 MB (<span id="modalStoragePercentText">0%</span>)
+              </span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+              <div id="storageProgressBar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-500">
+              <span>Đang lưu: <b id="modalStorageFileCount">0</b> tệp tin</span>
+              <span>Giới hạn miễn phí: 1,000 MB (1 GB)</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block font-semibold text-gray-700 text-[11px] mb-1">Chọn Năm cần xóa file:</label>
+              <select id="cleanYearSelect" onchange="updateCleanScopeOptions()" class="w-full bg-white border border-rose-300 rounded-lg p-2 text-xs font-bold text-gray-800 outline-none cursor-pointer"></select>
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-700 text-[11px] mb-1">Phạm vi xóa trong năm:</label>
+              <select id="cleanScopeSelect" onchange="previewFilesToDelete()" class="w-full bg-white border border-rose-300 rounded-lg p-2 text-xs font-bold text-gray-800 outline-none cursor-pointer">
+                <option value="all">Toàn bộ tất cả báo cáo trong năm đã chọn</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="cleanPreviewStats" class="bg-white p-2.5 rounded-lg border border-rose-200 text-xs font-semibold text-gray-700 flex items-center justify-between">
+            <span><i class="fa-solid fa-magnifying-glass text-rose-600 mr-1"></i> Số file dự kiến sẽ xóa: <b id="cleanFileCountText" class="text-red-700">0 file</b></span>
+            <button type="button" onclick="previewFilesToDelete()" class="text-blue-600 hover:underline text-[11px]"><i class="fa-solid fa-arrows-rotate"></i> Quét lại</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="cleanAlsoDeleteYear" class="rounded text-rose-600 cursor-pointer">
+            <label for="cleanAlsoDeleteYear" class="text-xs font-bold text-rose-900 cursor-pointer">Đồng thời xóa luôn năm này khỏi danh sách hệ thống sau khi dọn sạch file</label>
+          </div>
+
+          <button type="button" id="btnExecuteBatchDelete" onclick="executeBatchDeleteReports()" class="w-full bg-rose-700 hover:bg-rose-800 text-white font-bold py-2.5 rounded-lg shadow flex items-center justify-center gap-2 transition">
+            <i class="fa-solid fa-trash-can"></i> Xác Nhận Xóa Vĩnh Viễn & Giải Phóng Bộ Nhớ Supabase
+          </button>
+          <div id="cleanStatusMessage" class="hidden text-xs font-bold p-2.5 rounded-lg text-center"></div>
+        </div>
+
+        <!-- MỤC 4: QUẢN LÝ TÀI KHOẢN -->
+        <div class="border border-gray-200 p-4 rounded-xl bg-gray-50/50 space-y-3">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <h4 class="font-bold text-gray-800 uppercase flex items-center gap-1.5">
+              <i class="fa-solid fa-users text-red-600"></i> 4. Quản Lý & Chỉnh Sửa Đơn Vị / Khối
+            </h4>
+            
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <input type="text" id="adminSearchUser" oninput="filterAdminUserList()" placeholder="Tìm nhanh đơn vị..." class="border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none bg-white flex-1 sm:w-44">
+              <button onclick="openAddUserModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded font-bold shadow flex items-center gap-1 shrink-0">
+                <i class="fa-solid fa-user-plus"></i> Thêm Đơn Vị Mới
+              </button>
+            </div>
+          </div>
+          
+          <div class="max-h-60 overflow-y-auto border border-gray-200 rounded-lg bg-white">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-gray-100 border-b sticky top-0">
+                <tr class="text-gray-600 font-semibold">
+                  <th class="p-2.5">STT</th>
+                  <th class="p-2.5">Tên Đơn Vị</th>
+                  <th class="p-2.5">Khối</th>
+                  <th class="p-2.5">Tên Đăng Nhập</th>
+                  <th class="p-2.5 text-center">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody id="adminUserTableBody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MỤC 5: IMPORT EXCEL -->
+        <div class="border-t pt-4 space-y-3">
+          <h4 class="font-bold text-gray-800 uppercase flex items-center gap-1.5"><i class="fa-solid fa-file-excel text-green-600"></i> 5. Nạp Thêm Tài Khoản Bằng Excel</h4>
+          <button onclick="downloadTemplateExcel()" class="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-500 text-emerald-800 py-2.5 rounded font-bold flex items-center justify-center gap-2"><i class="fa-solid fa-file-excel text-emerald-600 text-base"></i> Tải Về File Excel Mẫu (.xlsx)</button>
+          <div class="border-2 border-dashed border-gray-300 hover:border-red-500 p-5 rounded-lg text-center bg-gray-50 transition cursor-pointer">
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelPreview(event)">
+            <label for="excelFileInput" class="cursor-pointer block">
+              <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 mb-2"></i>
+              <span class="block font-bold text-gray-700">Chọn file Excel để tải thêm tài khoản</span>
+              <span class="text-[11px] text-gray-500">Chấp nhận định dạng file .xlsx, .xls</span>
+            </label>
+          </div>
+          <div id="previewContainer" class="hidden space-y-2">
+            <div class="flex justify-between items-center"><span class="font-bold text-gray-700">Danh sách tài khoản chuẩn bị thêm:</span><span id="previewCount" class="bg-gray-200 px-2 py-0.5 rounded text-[10px] font-bold">0 tài khoản</span></div>
+            <div class="max-h-40 overflow-y-auto border border-gray-200 rounded">
+              <table class="w-full text-left border-collapse text-[11px]">
+                <thead class="bg-gray-100 border-b"><tr><th class="p-2">Tên Đăng Nhập</th><th class="p-2">Khối</th><th class="p-2">Tên Đơn Vị</th></tr></thead>
+                <tbody id="previewTbody" class="divide-y divide-gray-100"></tbody>
+              </table>
+            </div>
+            <button id="btnSubmitAccounts" onclick="submitAccountsToSystem()" class="w-full bg-red-700 hover:bg-red-800 text-white py-2.5 rounded font-bold shadow flex items-center justify-center gap-2"><i class="fa-solid fa-check"></i> Xác Nhận Nạp Tài Khoản</button>
+          </div>
+          <div id="uploadStatus" class="hidden text-center font-bold p-2 rounded"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL SỬA CHI TIẾT TÀI KHOẢN ================= -->
+  <div id="editUserModal" class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="bg-red-900 p-4 text-white flex justify-between items-center">
+        <h4 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Chỉnh Sửa Thông Tin Đơn Vị</h4>
+        <button onclick="closeEditUserModal()" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="handleSaveEditUser(event)" class="p-5 space-y-3.5 text-xs">
+        <input type="hidden" id="editUserId">
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Tên Đơn Vị:</label>
+          <input type="text" id="editFullName" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600 font-semibold">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Khối Trực Thuộc:</label>
+          <input type="text" id="editDepartment" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600 font-semibold" placeholder="VD: Khối Khu vực, Khối Doanh nghiệp...">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Tên Đăng Nhập:</label>
+          <input type="text" id="editEmail" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600 font-semibold">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Mật Khẩu:</label>
+          <input type="text" id="editPassword" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600 font-semibold">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeEditUserModal()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded font-semibold">Hủy</button>
+          <button type="submit" id="btnSaveUser" class="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded font-bold">Lưu Thay Đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL THÊM ĐƠN VỊ THỦ CÔNG ================= -->
+  <div id="addUserModal" class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+      <div class="bg-emerald-800 p-4 text-white flex justify-between items-center">
+        <h4 class="font-bold text-sm flex items-center gap-2"><i class="fa-solid fa-user-plus"></i> Thêm Đơn Vị Mới Thủ Công</h4>
+        <button onclick="closeAddUserModal()" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="handleCreateUserManual(event)" class="p-5 space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Tên Đơn Vị Mới:</label>
+          <input type="text" id="addFullName" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-emerald-600 font-semibold" placeholder="VD: Khu vực 25 hoặc Ban Dân tộc">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Khối Trực Thuộc:</label>
+          <input type="text" id="addDepartment" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-emerald-600 font-semibold" placeholder="VD: Khối Khu vực, Khối Doanh nghiệp...">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Tên Đăng Nhập:</label>
+          <input type="text" id="addEmail" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-emerald-600 font-semibold" placeholder="VD: khuvuc25">
+        </div>
+        <div>
+          <label class="block font-semibold text-gray-700 mb-1">Mật Khẩu:</label>
+          <input type="text" id="addPassword" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-emerald-600 font-semibold" value="Danguy@2026">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeAddUserModal()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded font-semibold">Hủy</button>
+          <button type="submit" id="btnAddUserSubmit" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold">Xác Nhận Thêm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPT XỬ LÝ TOÀN BỘ ================= -->
+  <script>
+    const SUPABASE_URL = "https://cqkpjxvdburyttuignze.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_PamjXmuMRYJICMvFaB-0fQ_6HKI5QKN";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    let donutChartInstance = null;
+    let barChartInstance = null;
+    let selectedFilesForReport = []; 
+    let currentLoggedUser = null;
+    let currentSystemDeadline = null;
+    let allUserProfiles = [];
+    let currentStatusFilter = 'all';
+
+    function normalizeStoragePath(rawPath) {
+      if (!rawPath) return '';
+      if (rawPath.includes('/bao-cao/')) {
+        rawPath = rawPath.split('/bao-cao/').pop();
+      }
+      return rawPath.replace(/^\/+/, '').split('?')[0];
+    }
+
+    // ================= 1. XỬ LÝ ĐĂNG NHẬP / ĐĂNG XUẤT TRIỆT ĐỂ =================
+    async function checkAuthAndRole() {
+      const adminTabBtn = document.getElementById('adminTabBtn');
+      const batchBtn = document.getElementById('btnBatchDownloadMain');
+      const storageBadge = document.getElementById('adminStorageBadge');
+      const authText = document.getElementById('authText');
+      const authIcon = document.getElementById('authIcon');
+      const authBtn = document.getElementById('authBtn');
+
+      const updateAdminUI = (isAdmin) => {
+        if (isAdmin) {
+          adminTabBtn.classList.remove('hidden');
+          adminTabBtn.classList.add('flex');
+          if (batchBtn) {
+            batchBtn.classList.remove('hidden');
+            batchBtn.classList.add('flex');
+          }
+          if (storageBadge) {
+            storageBadge.classList.remove('hidden');
+            storageBadge.classList.add('flex');
+          }
+          updateAdminStorageUsage();
+        } else {
+          adminTabBtn.classList.add('hidden');
+          adminTabBtn.classList.remove('flex');
+          if (batchBtn) {
+            batchBtn.classList.add('hidden');
+            batchBtn.classList.remove('flex');
+          }
+          if (storageBadge) {
+            storageBadge.classList.add('hidden');
+            storageBadge.classList.remove('flex');
+          }
+        }
+      };
+
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session && session.user) {
+          const { data: profiles } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id);
+          if (profiles && profiles.length > 0) {
+            currentLoggedUser = profiles[0];
+          } else {
+            currentLoggedUser = { id: session.user.id, email: session.user.email, full_name: 'Quản trị viên (Admin)', role: 'admin' };
+          }
+
+          authText.innerText = `Đăng xuất (${currentLoggedUser.full_name})`;
+          authIcon.className = "fa-solid fa-right-from-bracket";
+          authBtn.className = "bg-rose-700 hover:bg-rose-800 border border-rose-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 shadow transition";
+
+          updateAdminUI(currentLoggedUser.role === 'admin');
+          updateSenderUnitDisplay();
+          return;
+        }
+      } catch (e) {
+        console.warn("Không tìm thấy Supabase session", e);
+      }
+
+      // Kiểm tra người dùng lưu trữ ở localStorage
+      const localUser = localStorage.getItem('current_user');
+      if (localUser) {
+        try {
+          currentLoggedUser = JSON.parse(localUser);
+          authText.innerText = `Đăng xuất (${currentLoggedUser.full_name})`;
+          authIcon.className = "fa-solid fa-right-from-bracket";
+          authBtn.className = "bg-rose-700 hover:bg-rose-800 border border-rose-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 shadow transition";
+
+          updateAdminUI(currentLoggedUser.role === 'admin');
+          updateSenderUnitDisplay();
+          return;
+        } catch(e) {
+          localStorage.removeItem('current_user');
+        }
+      }
+
+      // Trạng thái chưa đăng nhập
+      currentLoggedUser = null;
+      authText.innerText = "Đăng nhập";
+      authIcon.className = "fa-solid fa-lock";
+      authBtn.className = "bg-red-800 hover:bg-red-700 border border-red-500 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1.5 shadow transition";
+      updateAdminUI(false);
+      updateSenderUnitDisplay();
+    }
+
+    async function handleAuthClick() {
+      if (currentLoggedUser) {
+        const confirmLogout = confirm(`Bạn có chắc chắn muốn đăng xuất khỏi tài khoản "${currentLoggedUser.full_name}" không?`);
+        if (!confirmLogout) return;
+
+        try {
+          // Thử signOut từ Supabase nhưng không để promise bị treo
+          await Promise.race([
+            supabaseClient.auth.signOut(),
+            new Promise(resolve => setTimeout(resolve, 800))
+          ]);
+        } catch (e) {
+          console.warn("Lỗi khi signOut SDK:", e);
+        } finally {
+          // Xóa sạch bộ nhớ cục bộ
+          localStorage.removeItem('current_user');
+          for (let key in localStorage) {
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+              localStorage.removeItem(key);
+            }
+          }
+          currentLoggedUser = null;
+          alert("Đã đăng xuất thành công!");
+          location.reload();
+        }
+      } else {
+        toggleLoginModal();
+      }
+    }
+
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const inputUser = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      const btn = document.getElementById('loginSubmitBtn');
+      btn.innerText = "Đang kiểm tra...";
+      btn.disabled = true;
+
+      try {
+        if (inputUser.includes('@')) {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email: inputUser, password });
+          if (!error && data?.session) {
+            alert("Đăng nhập Admin thành công!");
+            location.reload();
+            return;
+          }
+        }
+
+        const { data: userProfile, error: pErr } = await supabaseClient.from('profiles').select('*').eq('email', inputUser).single();
+        if (pErr || !userProfile || userProfile.temp_password !== password) {
+          alert("Sai tên đăng nhập hoặc mật khẩu!");
+          btn.innerText = "Xác Nhận Đăng Nhập";
+          btn.disabled = false;
+          return;
+        }
+
+        localStorage.setItem('current_user', JSON.stringify(userProfile));
+        alert("Đăng nhập thành công! Xin chào " + userProfile.full_name);
+        location.reload();
+      } catch (err) {
+        alert("Lỗi: " + err.message);
+        btn.innerText = "Xác Nhận Đăng Nhập";
+        btn.disabled = false;
+      }
+    }
+
+    function toggleLoginModal() { 
+      const modal = document.getElementById('loginModal');
+      modal.classList.toggle('hidden'); 
+    }
+
+    function toggleAdminModal() { 
+      const modal = document.getElementById('adminModal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        refreshAllYearControls();
+      }
+    }
+
+    // ================= 2. QUẢN LÝ ĐÍNH KÈM NHIỀU FILE BÁO CÁO =================
+    function triggerFileInput() {
+      const input = document.getElementById('reportFileInput');
+      if (input) input.click();
+    }
+
+    function handleReportFileSelect(e) {
+      const files = Array.from(e.target.files);
+      if (files && files.length > 0) {
+        addFilesToList(files);
+      }
+      e.target.value = '';
+    }
+
+    function addFilesToList(newFiles) {
+      newFiles.forEach(file => {
+        const isDuplicate = selectedFilesForReport.some(f => f.name === file.name && f.size === file.size);
+        if (!isDuplicate) {
+          selectedFilesForReport.push(file);
+        }
+      });
+      updateFileUploadDisplay();
+    }
+
+    function removeSelectedFile(index) {
+      selectedFilesForReport.splice(index, 1);
+      updateFileUploadDisplay();
+    }
+
+    function updateFileUploadDisplay() {
+      const listEl = document.getElementById('selectedFilesList');
+      if (!listEl) return;
+
+      if (!selectedFilesForReport || selectedFilesForReport.length === 0) {
+        listEl.innerHTML = '';
+        listEl.classList.add('hidden');
+        return;
+      }
+
+      listEl.classList.remove('hidden');
+
+      let totalMB = 0;
+      selectedFilesForReport.forEach(f => totalMB += (f.size / (1024 * 1024)));
+
+      let html = `
+        <div class="flex items-center justify-between text-xs font-bold text-gray-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg mb-2">
+          <span class="text-emerald-800"><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> Đã chọn ${selectedFilesForReport.length} file</span>
+          <span class="text-emerald-700 text-[11px]">Tổng dung lượng: ${totalMB.toFixed(2)} MB</span>
+        </div>
+      `;
+
+      html += selectedFilesForReport.map((f, idx) => {
+        const autoName = generateReportFileName(f.name, idx, selectedFilesForReport.length);
+        const fSizeMB = (f.size / (1024 * 1024)).toFixed(2);
+        return `
+          <div class="flex items-center justify-between bg-white p-2.5 rounded-lg border border-gray-200 shadow-xs hover:border-gray-300 transition text-xs">
+            <div class="flex items-center gap-2 overflow-hidden pr-2">
+              <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">${idx + 1}</span>
+              <div class="truncate">
+                <span class="font-bold text-gray-800 block truncate" title="${f.name}">${f.name}</span>
+                <span class="text-red-700 text-[10px] font-mono block">Lưu thành: <b>${autoName}</b></span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <span class="text-[10px] text-gray-500 font-semibold">${fSizeMB} MB</span>
+              <button type="button" onclick="removeSelectedFile(${idx})" class="w-6 h-6 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition" title="Xóa file này">
+                <i class="fa-solid fa-trash-can text-[11px]"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      listEl.innerHTML = html;
+    }
+
+    function removeVietnameseTones(str) {
+      if (!str) return '';
+      str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+      str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+      str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+      str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+      str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+      str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+      str = str.replace(/đ/g, "d");
+      str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+      str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+      str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+      str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+      str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+      str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+      str = str.replace(/Đ/g, "D");
+      return str;
+    }
+
+    function generateReportFileName(originalFileName, index = 0, totalFiles = 1) {
+      if (!originalFileName) return '';
+      const fileExt = originalFileName.split('.').pop();
+      const periodSelect = document.getElementById('periodValue');
+      const periodVal = periodSelect ? periodSelect.value : '';
+      
+      const cleanPeriod = periodVal.replace(/\//g, '-').trim();
+      const unitName = currentLoggedUser && currentLoggedUser.full_name ? currentLoggedUser.full_name.trim() : 'Đơn vị';
+
+      if (totalFiles > 1) {
+        return `${cleanPeriod} (${unitName}) - File ${index + 1}.${fileExt}`;
+      }
+      return `${cleanPeriod} (${unitName}).${fileExt}`;
+    }
+
+    async function submitReportToSupabase() {
+      if (!currentLoggedUser) {
+        alert("Vui lòng đăng nhập tài khoản đơn vị trước khi gửi báo cáo!");
+        toggleLoginModal();
+        return;
+      }
+      if (!selectedFilesForReport || selectedFilesForReport.length === 0) {
+        return alert("Vui lòng đính kèm ít nhất 01 file báo cáo!");
+      }
+
+      const btn = document.getElementById('btnSubmitReport');
+      const statusEl = document.getElementById('reportStatusMessage');
+      btn.disabled = true;
+      statusEl.classList.remove('hidden');
+      statusEl.className = "p-3 rounded-lg text-center text-xs font-bold bg-amber-100 text-amber-800";
+
+      const totalFiles = selectedFilesForReport.length;
+      const periodText = document.getElementById('periodValue').value;
+      const categoryText = document.getElementById('reportCategory').value;
+
+      try {
+        for (let i = 0; i < totalFiles; i++) {
+          const file = selectedFilesForReport[i];
+          btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Đang tải file ${i + 1}/${totalFiles}...`;
+          statusEl.innerText = `Đang tải lên file ${i + 1}/${totalFiles}: ${file.name}...`;
+
+          const fileExt = file.name.split('.').pop();
+          const finalFileName = generateReportFileName(file.name, i, totalFiles);
+
+          const safePeriodAscii = removeVietnameseTones(periodText).replace(/[^a-zA-Z0-9]/g, '_');
+          const safeUnitAscii = removeVietnameseTones(currentLoggedUser.full_name || 'unit').replace(/[^a-zA-Z0-9]/g, '_');
+          const storageFileName = `${safePeriodAscii}_${safeUnitAscii}_file${i + 1}_${Date.now()}.${fileExt}`;
+          const filePath = `${currentLoggedUser.id || currentLoggedUser.email}/${storageFileName}`;
+
+          const { error: storageErr } = await supabaseClient.storage.from('bao-cao').upload(filePath, file, { upsert: true });
+          if (storageErr) throw storageErr;
+
+          const { error: reportErr } = await supabaseClient.from('reports').insert([{
+            user_id: currentLoggedUser.id,
+            report_month: periodText,
+            report_type: categoryText,
+            file_name: finalFileName,
+            file_url: filePath,
+            created_at: new Date().toISOString()
+          }]);
+
+          if (reportErr) throw reportErr;
+        }
+
+        statusEl.className = "p-3 rounded-lg text-center text-xs font-bold bg-green-100 text-green-800";
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> Đã gửi thành công ${totalFiles} file báo cáo!`;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Đã Gửi Thành Công`;
+
+        setTimeout(() => { switchTab('home'); location.reload(); }, 1200);
+      } catch (err) {
+        statusEl.className = "p-3 rounded-lg text-center text-xs font-bold bg-red-100 text-red-800";
+        statusEl.innerText = "Lỗi khi nộp: " + err.message;
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Lại`;
+      }
+    }
+
+    // ================= 3. QUẢN LÝ DUNG LƯỢNG STORAGE CHO ADMIN =================
+    async function updateAdminStorageUsage() {
+      if (!currentLoggedUser || currentLoggedUser.role !== 'admin') return;
+
+      try {
+        let totalBytes = 0;
+        let fileCount = 0;
+
+        const { data: rootFolders } = await supabaseClient.storage.from('bao-cao').list();
+        if (rootFolders && rootFolders.length > 0) {
+          for (const item of rootFolders) {
+            if (item.metadata && item.metadata.size) {
+              totalBytes += item.metadata.size;
+              fileCount++;
+            } else {
+              const { data: subFiles } = await supabaseClient.storage.from('bao-cao').list(item.name);
+              if (subFiles && subFiles.length > 0) {
+                for (const sf of subFiles) {
+                  if (sf.metadata && sf.metadata.size) {
+                    totalBytes += sf.metadata.size;
+                    fileCount++;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        const usedMB = (totalBytes / (1024 * 1024)).toFixed(2);
+        const percent = Math.min(100, ((usedMB / 1000) * 100)).toFixed(1);
+
+        const headerEl = document.getElementById('headerStorageUsed');
+        const headerPctEl = document.getElementById('headerStoragePercent');
+        if (headerEl) headerEl.innerText = `${usedMB} MB`;
+        if (headerPctEl) headerPctEl.innerText = `${percent}%`;
+
+        const modalText = document.getElementById('modalStorageUsedText');
+        const modalPct = document.getElementById('modalStoragePercentText');
+        const modalCount = document.getElementById('modalStorageFileCount');
+        const pBar = document.getElementById('storageProgressBar');
+
+        if (modalText) modalText.innerText = `${usedMB} MB`;
+        if (modalPct) modalPct.innerText = `${percent}%`;
+        if (modalCount) modalCount.innerText = fileCount;
+        if (pBar) {
+          pBar.style.width = `${percent}%`;
+          if (percent > 85) pBar.className = "bg-rose-600 h-2.5 rounded-full transition-all duration-500";
+          else if (percent > 60) pBar.className = "bg-amber-500 h-2.5 rounded-full transition-all duration-500";
+          else pBar.className = "bg-indigo-600 h-2.5 rounded-full transition-all duration-500";
+        }
+      } catch (err) {
+        console.error("Lỗi đo dung lượng storage:", err);
+      }
+    }
+
+    // ================= 4. QUẢN LÝ NĂM HỆ THỐNG ĐỘNG =================
+    function getSystemYears() {
+      const stored = localStorage.getItem('system_custom_years');
+      if (stored) {
+        try {
+          const arr = JSON.parse(stored);
+          if (Array.isArray(arr) && arr.length > 0) return arr.map(Number).sort((a,b) => a - b);
+        } catch(e) {}
+      }
+      return [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+    }
+
+    function renderAdminYearBadges() {
+      const container = document.getElementById('adminYearBadgesContainer');
+      if (!container) return;
+      const years = getSystemYears();
+      container.innerHTML = '';
+      years.forEach(y => {
+        const badge = document.createElement('span');
+        badge.className = "bg-blue-100 text-blue-900 font-bold px-2.5 py-1 rounded-lg text-xs border border-blue-200 flex items-center gap-1.5 shadow-sm";
+        badge.innerHTML = `
+          <span>Năm ${y}</span>
+          <button type="button" onclick="handleDeleteSystemYear(${y})" class="text-rose-500 hover:text-rose-700 hover:bg-rose-200/60 rounded-full w-4 h-4 inline-flex items-center justify-center transition" title="Xóa năm ${y} khỏi hệ thống">
+            <i class="fa-solid fa-xmark text-[11px]"></i>
+          </button>
+        `;
+        container.appendChild(badge);
+      });
+    }
+
+    function handleAddNewSystemYear() {
+      const input = document.getElementById('adminNewYearInput');
+      const val = parseInt(input.value);
+      if (!val || val < 2020 || val > 2060) {
+        alert("Vui lòng nhập số năm hợp lệ từ 2020 đến 2060 (Ví dụ: 2031)!");
+        return;
+      }
+
+      const years = getSystemYears();
+      if (years.includes(val)) {
+        alert(`Năm ${val} đã có trong hệ thống rồi!`);
+        return;
+      }
+
+      years.push(val);
+      years.sort((a,b) => a - b);
+      localStorage.setItem('system_custom_years', JSON.stringify(years));
+
+      alert(`Đã thêm thành công Năm ${val}!`);
+      input.value = '';
+      refreshAllYearControls();
+    }
+
+    function handleDeleteSystemYear(yearToDelete) {
+      const years = getSystemYears();
+      if (years.length <= 1) {
+        alert("Hệ thống phải có ít nhất 1 năm hoạt động!");
+        return;
+      }
+
+      if (!confirm(`Bạn có chắc chắn muốn XÓA NĂM ${yearToDelete} khỏi danh sách năm của hệ thống không?`)) {
+        return;
+      }
+
+      const filtered = years.filter(y => y !== yearToDelete);
+      localStorage.setItem('system_custom_years', JSON.stringify(filtered));
+      refreshAllYearControls();
+    }
+
+    function refreshAllYearControls() {
+      renderAdminYearBadges();
+      populatePeriodOptions('month');
+      initDashboardPeriodFilter();
+      initBatchDownloadYears();
+      initCleanYearOptions();
+      updateAdminStorageUsage();
+    }
+
+    // ================= 5. DỌN DẸP DỮ LIỆU & STORAGE HÀNG LOẠT =================
+    function initCleanYearOptions() {
+      const yearSelect = document.getElementById('cleanYearSelect');
+      if (!yearSelect) return;
+      const years = getSystemYears();
+      yearSelect.innerHTML = '';
+      years.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = `Năm ${y}`;
+        if (y === 2026) opt.selected = true;
+        yearSelect.appendChild(opt);
+      });
+      updateCleanScopeOptions();
+    }
+
+    function updateCleanScopeOptions() {
+      const year = document.getElementById('cleanYearSelect').value;
+      const scopeSelect = document.getElementById('cleanScopeSelect');
+      scopeSelect.innerHTML = `<option value="all">Toàn bộ tất cả báo cáo trong năm ${year}</option>`;
+
+      for (let m = 1; m <= 12; m++) {
+        const mStr = m < 10 ? '0' + m : m;
+        const opt = document.createElement('option');
+        opt.value = `Tháng ${mStr}/${year}`;
+        opt.innerText = `Chỉ xóa Tháng ${mStr}/${year}`;
+        scopeSelect.appendChild(opt);
+      }
+      for (let q = 1; q <= 4; q++) {
+        const opt = document.createElement('option');
+        opt.value = `Quý ${q}/${year}`;
+        opt.innerText = `Chỉ xóa Quý ${q}/${year}`;
+        scopeSelect.appendChild(opt);
+      }
+      previewFilesToDelete();
+    }
+
+    async function previewFilesToDelete() {
+      const year = document.getElementById('cleanYearSelect').value;
+      const scope = document.getElementById('cleanScopeSelect').value;
+      const countEl = document.getElementById('cleanFileCountText');
+      countEl.innerText = "Đang kiểm tra...";
+
+      try {
+        let query = supabaseClient.from('reports').select('id, file_url', { count: 'exact' });
+        if (scope === 'all') {
+          query = query.like('report_month', `%${year}%`);
+        } else {
+          query = query.eq('report_month', scope);
+        }
+
+        const { count: dbCount, error } = await query;
+        let count = (!error && typeof dbCount === 'number') ? dbCount : 0;
+        countEl.innerText = `${count} file báo cáo`;
+      } catch (err) {
+        countEl.innerText = "0 file báo cáo";
+      }
+    }
+
+    async function executeBatchDeleteReports() {
+      const year = parseInt(document.getElementById('cleanYearSelect').value);
+      const scope = document.getElementById('cleanScopeSelect').value;
+      const alsoDeleteYear = document.getElementById('cleanAlsoDeleteYear').checked;
+      const statusEl = document.getElementById('cleanStatusMessage');
+      const btn = document.getElementById('btnExecuteBatchDelete');
+
+      const targetDesc = scope === 'all' ? `toàn bộ các file báo cáo của NĂM ${year}` : `các file báo cáo của kỳ "${scope}"`;
+
+      if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${targetDesc} không?`)) return;
+
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Đang dọn dẹp Storage...`;
+      statusEl.className = "p-2.5 rounded-lg text-xs font-bold text-center bg-amber-100 text-amber-900 block";
+      statusEl.innerText = "Đang quét danh sách file...";
+
+      try {
+        let filesToDeleteFromStorage = new Set();
+        let reportIdsToDelete = [];
+
+        let query = supabaseClient.from('reports').select('id, file_url');
+        if (scope === 'all') {
+          query = query.like('report_month', `%${year}%`);
+        } else {
+          query = query.eq('report_month', scope);
+        }
+
+        const { data: dbReports } = await query;
+        if (dbReports && dbReports.length > 0) {
+          dbReports.forEach(r => {
+            reportIdsToDelete.push(r.id);
+            if (r.file_url) filesToDeleteFromStorage.add(normalizeStoragePath(r.file_url));
+          });
+        }
+
+        const finalStoragePaths = Array.from(filesToDeleteFromStorage);
+
+        if (finalStoragePaths.length === 0 && reportIdsToDelete.length === 0) {
+          statusEl.className = "p-2.5 rounded-lg text-xs font-bold text-center bg-gray-100 text-gray-700 block";
+          statusEl.innerText = "Không tìm thấy file nào của năm/kỳ này để xóa.";
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> Xác Nhận Xóa Vĩnh Viễn & Giải Phóng Bộ Nhớ Supabase`;
+          return;
+        }
+
+        for (let i = 0; i < finalStoragePaths.length; i += 50) {
+          const chunk = finalStoragePaths.slice(i, i + 50);
+          await supabaseClient.storage.from('bao-cao').remove(chunk);
+        }
+
+        if (reportIdsToDelete.length > 0) {
+          for (let i = 0; i < reportIdsToDelete.length; i += 100) {
+            const chunkIds = reportIdsToDelete.slice(i, i + 100);
+            await supabaseClient.from('reports').delete().in('id', chunkIds);
+          }
+        }
+
+        if (alsoDeleteYear && scope === 'all') {
+          const years = getSystemYears();
+          if (years.length > 1) {
+            const filtered = years.filter(y => y !== year);
+            localStorage.setItem('system_custom_years', JSON.stringify(filtered));
+          }
+        }
+
+        statusEl.className = "p-2.5 rounded-lg text-xs font-bold text-center bg-emerald-100 text-emerald-800 block";
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> Đã xóa sạch dữ liệu và giải phóng dung lượng!`;
+
+        refreshAllYearControls();
+        await loadDynamicDashboard();
+      } catch (err) {
+        statusEl.className = "p-2.5 rounded-lg text-xs font-bold text-center bg-rose-100 text-rose-800 block";
+        statusEl.innerText = err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-trash-can"></i> Xác Nhận Xóa Vĩnh Viễn & Giải Phóng Bộ Nhớ Supabase`;
+      }
+    }
+
+    // ================= 6. KHỞI TẠO BỘ CHỌN KỲ TRANG CHỦ & TAB GỬI =================
+    function initDashboardPeriodFilter() {
+      const type = document.getElementById('dashPeriodType').value;
+      const select = document.getElementById('dashPeriodSelect');
+      const years = getSystemYears();
+      select.innerHTML = '';
+
+      if (type === 'month') {
+        years.forEach(y => {
+          const optGroup = document.createElement('optgroup');
+          optGroup.label = `Năm ${y}`;
+          for (let m = 1; m <= 12; m++) {
+            const mStr = m < 10 ? '0' + m : m;
+            const opt = document.createElement('option');
+            opt.value = `Tháng ${mStr}/${y}`;
+            opt.innerText = `Tháng ${mStr}/${y}`;
+            if (y === 2026 && m === 10) opt.selected = true;
+            optGroup.appendChild(opt);
+          }
+          select.appendChild(optGroup);
+        });
+      } else if (type === 'quarter') {
+        years.forEach(y => {
+          const optGroup = document.createElement('optgroup');
+          optGroup.label = `Năm ${y}`;
+          for (let q = 1; q <= 4; q++) {
+            const opt = document.createElement('option');
+            opt.value = `Quý ${q}/${y}`;
+            opt.innerText = `Quý ${q}/${y}`;
+            optGroup.appendChild(opt);
+          }
+          select.appendChild(optGroup);
+        });
+      } else if (type === 'year') {
+        years.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = `Năm ${y}`;
+          opt.innerText = `Năm ${y}`;
+          if (y === 2026) opt.selected = true;
+          select.appendChild(opt);
+        });
+      } else {
+        const opt = document.createElement('option');
+        opt.value = 'all';
+        opt.innerText = 'Toàn bộ tất cả các kỳ';
+        select.appendChild(opt);
+      }
+    }
+
+    function handleDashPeriodTypeChange() {
+      initDashboardPeriodFilter();
+      loadDynamicDashboard();
+    }
+
+    function setFilterStatus(status) {
+      currentStatusFilter = status;
+      ['all', 'submitted', 'late', 'pending'].forEach(s => {
+        const btn = document.getElementById(`btnFilter_${s}`);
+        if (btn) {
+          if (s === status) btn.className = "active-status-btn px-2.5 py-1 rounded font-bold transition";
+          else btn.className = "px-2.5 py-1 rounded font-semibold text-gray-700 hover:bg-white transition";
+        }
+      });
+      loadDynamicDashboard();
+    }
+
+    function populatePeriodOptions(mode) {
+      const select = document.getElementById('periodValue');
+      select.innerHTML = '';
+      const years = getSystemYears();
+
+      if (mode === 'month') {
+        years.forEach(y => {
+          const optGroup = document.createElement('optgroup');
+          optGroup.label = `Năm ${y}`;
+          for (let m = 1; m <= 12; m++) {
+            const mStr = m < 10 ? '0' + m : m;
+            const opt = document.createElement('option');
+            opt.value = `Tháng ${mStr}/${y}`;
+            opt.innerText = `Tháng ${mStr}/${y}`;
+            if (y === 2026 && m === 10) opt.selected = true;
+            optGroup.appendChild(opt);
+          }
+          select.appendChild(optGroup);
+        });
+      } else if (mode === 'quarter') {
+        years.forEach(y => {
+          const optGroup = document.createElement('optgroup');
+          optGroup.label = `Năm ${y}`;
+          for (let q = 1; q <= 4; q++) {
+            const opt = document.createElement('option');
+            opt.value = `Quý ${q}/${y}`;
+            opt.innerText = `Quý ${q}/${y}`;
+            optGroup.appendChild(opt);
+          }
+          select.appendChild(optGroup);
+        });
+      } else {
+        years.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = `Năm ${y}`;
+          opt.innerText = `Năm ${y}`;
+          if (y === 2026) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    function selectPeriodType(type) {
+      const btnM = document.getElementById('btnPeriodMonth');
+      const btnQ = document.getElementById('btnPeriodQuarter');
+      const btnY = document.getElementById('btnPeriodYear');
+      const subLabel = document.getElementById('periodSubLabel');
+
+      btnM.className = "border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 text-gray-600 hover:bg-gray-50 transition";
+      btnQ.className = "border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 text-gray-600 hover:bg-gray-50 transition";
+      btnY.className = "border border-gray-300 rounded-lg py-2.5 flex flex-col items-center justify-center gap-1 text-gray-600 hover:bg-gray-50 transition";
+
+      if (type === 'month') {
+        btnM.classList.add('active-period-btn');
+        subLabel.innerText = "Thời Gian (Tháng)";
+        populatePeriodOptions('month');
+      } else if (type === 'quarter') {
+        btnQ.classList.add('active-period-btn');
+        subLabel.innerText = "Thời Gian (Quý)";
+        populatePeriodOptions('quarter');
+      } else {
+        btnY.classList.add('active-period-btn');
+        subLabel.innerText = "Thời Gian (Năm)";
+        populatePeriodOptions('year');
+      }
+      updateFileUploadDisplay();
+    }
+
+    // ================= 7. TẢI DỮ LIỆU ĐỘNG & THỐNG KÊ TRANG CHỦ =================
+    async function loadDynamicDashboard() {
+      try {
+        const { data: profiles, error: pErr } = await supabaseClient.from('profiles').select('*').neq('role', 'admin');
+        if (pErr) throw pErr;
+
+        allUserProfiles = profiles || [];
+        renderAdminUserTable(allUserProfiles);
+
+        const selectedPeriod = document.getElementById('dashPeriodSelect').value;
+        const periodType = document.getElementById('dashPeriodType').value;
+
+        let query = supabaseClient.from('reports').select('*').order('created_at', { ascending: false });
+        if (periodType !== 'all' && selectedPeriod && selectedPeriod !== 'all') {
+          query = query.eq('report_month', selectedPeriod);
+        }
+
+        const { data: reports, error: rErr } = await query;
+        if (rErr) throw rErr;
+
+        const userReportsMap = {};
+        (reports || []).forEach(r => {
+          if (!userReportsMap[r.user_id]) userReportsMap[r.user_id] = [];
+          userReportsMap[r.user_id].push(r);
+        });
+
+        const total = allUserProfiles.length;
+        let submittedCount = 0;
+        let lateCount = 0;
+        let onTimeCount = 0;
+
+        allUserProfiles.forEach(p => {
+          const userFiles = userReportsMap[p.id];
+          if (userFiles && userFiles.length > 0) {
+            submittedCount++;
+            const firstRep = userFiles[0];
+            if (firstRep.created_at && currentSystemDeadline && new Date(firstRep.created_at) > currentSystemDeadline) {
+              lateCount++;
+            } else {
+              onTimeCount++;
+            }
+          }
+        });
+
+        const pendingCount = total - submittedCount;
+        const rate = total > 0 ? Math.round((submittedCount / total) * 100) : 0;
+
+        document.getElementById('totalUnits').innerText = total;
+        document.getElementById('submittedUnits').innerText = submittedCount;
+        document.getElementById('onTimeAndLateSubtext').innerText = `(${onTimeCount} đúng hạn, ${lateCount} trễ)`;
+        document.getElementById('pendingUnits').innerText = pendingCount;
+        document.getElementById('completionRate').innerText = `${rate}%`;
+        document.getElementById('chartTotalLabel').innerText = `${total} Đơn vị`;
+
+        const deptStats = {};
+        allUserProfiles.forEach(p => {
+          const dept = p.department || 'Chưa phân khối';
+          if (!deptStats[dept]) deptStats[dept] = { total: 0, submitted: 0 };
+          deptStats[dept].total += 1;
+          if (userReportsMap[p.id] && userReportsMap[p.id].length > 0) deptStats[dept].submitted += 1;
+        });
+
+        const metricsContainer = document.getElementById('headerMetricsContainer');
+        metricsContainer.innerHTML = `
+          <div class="bg-black/25 border border-white/10 rounded-md px-2 py-1 text-center">
+            <span class="text-[9px] text-gray-300 block leading-tight font-medium">KỲ: ${selectedPeriod}</span>
+            <span class="text-xs font-bold text-yellow-300 leading-tight">${submittedCount}/${total}</span>
+          </div>
+        `;
+
+        // Các thẻ khối (dạng 1 hàng siêu gọn)
+        for (const [deptName, stat] of Object.entries(deptStats)) {
+          metricsContainer.innerHTML += `
+            <div class="bg-black/25 border border-white/10 rounded-md px-2 py-1 flex items-center gap-1.5 text-[11px]">
+              <span class="text-gray-300 uppercase text-[10px] font-medium">${deptName}:</span>
+              <span class="font-bold text-yellow-300">${stat.submitted}/${stat.total}</span>
+            </div>
+          `;
+        }
+
+        // Thẻ Tiến độ
+        metricsContainer.innerHTML += `
+          <div class="bg-black/25 border border-white/10 rounded-md px-2 py-1 flex items-center gap-1.5 text-[11px]">
+            <span class="text-gray-300 text-[10px] font-medium">TIẾN ĐỘ:</span>
+            <span class="font-bold text-green-400">${rate}%</span>
+          </div>
+        `;
+
+        if (donutChartInstance) donutChartInstance.destroy();
+        donutChartInstance = new Chart(document.getElementById('donutChart'), {
+          type: 'doughnut',
+          data: {
+            datasets: [{
+              data: [submittedCount, pendingCount > 0 ? pendingCount : 0],
+              backgroundColor: ['#10b981', '#f59e0b'],
+              cutout: '75%', borderWidth: 0
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        const deptLabels = Object.keys(deptStats).map(d => `${d} (${deptStats[d].total})`);
+        const deptSubmitted = Object.values(deptStats).map(s => s.submitted);
+        const deptPending = Object.values(deptStats).map(s => s.total - s.submitted);
+
+        if (barChartInstance) barChartInstance.destroy();
+        barChartInstance = new Chart(document.getElementById('barChart'), {
+          type: 'bar',
+          data: {
+            labels: deptLabels,
+            datasets: [
+              { label: 'Đã nộp', data: deptSubmitted, backgroundColor: '#10b981', stack: 'Stack 0' },
+              { label: 'Chưa nộp', data: deptPending, backgroundColor: '#e2e8f0', stack: 'Stack 0' }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { stepSize: 5 } } },
+            plugins: { legend: { display: false } }
+          }
+        });
+
+        const tableBody = document.getElementById('unitTableBody');
+        tableBody.innerHTML = '';
+        const isAdmin = currentLoggedUser && currentLoggedUser.role === 'admin';
+        const currentUserId = currentLoggedUser ? currentLoggedUser.id : null;
+
+        const filteredProfiles = allUserProfiles.filter(p => {
+          const files = userReportsMap[p.id];
+          const isDone = files && files.length > 0;
+          const isLate = isDone && files[0].created_at && currentSystemDeadline && new Date(files[0].created_at) > currentSystemDeadline;
+
+          if (currentStatusFilter === 'submitted') return isDone;
+          if (currentStatusFilter === 'late') return isLate;
+          if (currentStatusFilter === 'pending') return !isDone;
+          return true;
+        });
+
+        document.getElementById('unitTableCount').innerText = `${filteredProfiles.length} / ${total} đơn vị`;
+
+        if (filteredProfiles.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400 italic">Không có đơn vị nào thuộc trạng thái này.</td></tr>`;
+          return;
+        }
+
+        filteredProfiles.forEach((p, idx) => {
+          const files = userReportsMap[p.id] || [];
+          const isDone = files.length > 0;
+
+          let submitTimeHtml = `<span class="text-gray-400">---</span>`;
+          let statusBadgeHtml = `<span class="bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-bold text-[10px]"><i class="fa-solid fa-clock mr-1"></i>CHƯA NỘP</span>`;
+
+          if (isDone && files[0].created_at) {
+            const submitDate = new Date(files[0].created_at);
+            const timeStr = submitDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const dateStr = submitDate.toLocaleDateString('vi-VN');
+            submitTimeHtml = `<span class="font-semibold text-gray-700">${timeStr}</span> <span class="text-gray-400 text-[10px]">(${dateStr})</span>`;
+
+            if (currentSystemDeadline && submitDate > currentSystemDeadline) {
+              statusBadgeHtml = `
+                <div class="flex flex-col items-start gap-1">
+                  <span class="bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full font-bold text-[10px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i>GỞI TRỄ</span>
+                  <span class="text-rose-600 text-[9px] font-semibold tracking-tight">Trễ so với hạn nộp</span>
+                </div>
+              `;
+            } else {
+              statusBadgeHtml = `
+                <div class="flex flex-col items-start gap-1">
+                  <span class="bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full font-bold text-[10px]"><i class="fa-solid fa-check mr-1"></i>ĐÃ NỘP (${files.length} file)</span>
+                  <span class="bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded text-[9px] font-bold tracking-tight">Đúng hạn</span>
+                </div>
+              `;
+            }
+          }
+
+          let actionHtml = `<span class="text-gray-400 italic">Chưa nộp</span>`;
+          if (isDone) {
+            const fileLinks = files.map((report, fileIdx) => {
+              const { data: publicUrlData } = supabaseClient.storage.from('bao-cao').getPublicUrl(report.file_url, { download: report.file_name });
+              const downloadUrl = publicUrlData ? publicUrlData.publicUrl : '#';
+
+              let dBtn = '';
+              if (isAdmin || (currentUserId && currentUserId === p.id)) {
+                dBtn = `
+                  <a href="${downloadUrl}" target="_blank" download="${report.file_name}" class="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 px-2 py-0.5 rounded font-medium text-[10px] transition shadow-xs" title="${report.file_name}">
+                    <i class="fa-solid fa-cloud-arrow-down text-blue-600"></i>
+                    <span>Tải file ${files.length > 1 ? `#${fileIdx + 1}` : ''}</span>
+                  </a>
+                `;
+              } else {
+                dBtn = `<span class="text-emerald-700 font-semibold text-[11px]"><i class="fa-solid fa-check"></i> File ${fileIdx + 1}</span>`;
+              }
+
+              let delBtn = '';
+              if (isAdmin) {
+                delBtn = `
+                  <button onclick="handleDeleteReport('${report.id}', '${report.file_url}', '${report.file_name.replace(/'/g, "\\'")}')" class="px-1.5 py-0.5 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 font-semibold text-[10px]" title="Xóa file này">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                `;
+              }
+
+              return `<div class="flex items-center gap-1">${dBtn}${delBtn}</div>`;
+            }).join('');
+
+            actionHtml = `<div class="flex flex-wrap items-center justify-center gap-1.5">${fileLinks}</div>`;
+          }
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-50';
+          tr.innerHTML = `
+            <td class="p-3 font-medium text-gray-500">${idx + 1}</td>
+            <td class="p-3 font-semibold text-gray-800">${p.full_name}</td>
+            <td class="p-3 text-gray-600">${p.department || '---'}</td>
+            <td class="p-3 font-mono text-blue-600">${p.email}</td>
+            <td class="p-3">${statusBadgeHtml}</td>
+            <td class="p-3">${submitTimeHtml}</td>
+            <td class="p-3 text-center">${actionHtml}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+
+      } catch (err) { console.error(err); }
+    }
+
+    // ================= 8. ADMIN XÓA TỪNG FILE BÁO CÁO =================
+    async function handleDeleteReport(reportId, fileUrl, fileName) {
+      if (!confirm(`Bạn có chắc chắn muốn XÓA file "${fileName}" không?`)) return;
+
+      try {
+        if (fileUrl) {
+          const cleanPath = normalizeStoragePath(fileUrl);
+          await supabaseClient.storage.from('bao-cao').remove([cleanPath]);
+        }
+        const { error: dErr } = await supabaseClient.from('reports').delete().eq('id', reportId);
+        if (dErr) throw dErr;
+
+        alert(`Đã xóa vĩnh viễn file "${fileName}"!`);
+        await loadDynamicDashboard();
+        updateAdminStorageUsage();
+      } catch (err) {
+        alert("Lỗi khi xóa báo cáo: " + err.message);
+      }
+    }
+
+    // ================= 9. TẢI VỀ HÀNG LOẠT (.ZIP) DÀNH CHO ADMIN =================
+    function initBatchDownloadYears() {
+      const yearSelect = document.getElementById('batchDownloadYear');
+      if (!yearSelect) return;
+      const years = getSystemYears();
+      yearSelect.innerHTML = '';
+      years.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = `Năm ${y}`;
+        if (y === 2026) opt.selected = true;
+        yearSelect.appendChild(opt);
+      });
+      updateBatchPeriodOptions();
+    }
+
+    function updateBatchPeriodOptions() {
+      const type = document.getElementById('batchDownloadType').value;
+      const year = document.getElementById('batchDownloadYear').value;
+      const detailSelect = document.getElementById('batchDownloadDetail');
+      detailSelect.innerHTML = `<option value="all">Tất cả các kỳ trong năm ${year}</option>`;
+
+      if (type === 'month') {
+        for (let m = 1; m <= 12; m++) {
+          const mStr = m < 10 ? '0' + m : m;
+          const opt = document.createElement('option');
+          opt.value = `Tháng ${mStr}/${year}`;
+          opt.innerText = `Tháng ${mStr}/${year}`;
+          detailSelect.appendChild(opt);
+        }
+      } else if (type === 'quarter') {
+        for (let q = 1; q <= 4; q++) {
+          const opt = document.createElement('option');
+          opt.value = `Quý ${q}/${year}`;
+          opt.innerText = `Quý ${q}/${year}`;
+          detailSelect.appendChild(opt);
+        }
+      } else if (type === 'year') {
+        const opt = document.createElement('option');
+        opt.value = `Năm ${year}`;
+        opt.innerText = `Năm ${year}`;
+        detailSelect.appendChild(opt);
+      }
+    }
+
+    function openBatchDownloadModal() {
+      if (!currentLoggedUser || currentLoggedUser.role !== 'admin') {
+        alert("Tính năng tải hàng loạt chỉ dành riêng cho Quản trị viên (Admin)!");
+        return;
+      }
+      initBatchDownloadYears();
+      document.getElementById('batchDownloadStatus').classList.add('hidden');
+      document.getElementById('batchDownloadModal').classList.remove('hidden');
+    }
+
+    function closeBatchDownloadModal() {
+      document.getElementById('batchDownloadModal').classList.add('hidden');
+    }
+
+    async function executeBatchDownload() {
+      const year = document.getElementById('batchDownloadYear').value;
+      const detail = document.getElementById('batchDownloadDetail').value;
+      const statusEl = document.getElementById('batchDownloadStatus');
+      const btn = document.getElementById('btnStartBatchDownload');
+
+      statusEl.className = "p-3 rounded-lg text-xs font-bold text-center bg-blue-100 text-blue-900 block";
+      statusEl.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Đang tìm kiếm các file báo cáo phù hợp...`;
+      btn.disabled = true;
+
+      try {
+        let query = supabaseClient.from('reports').select('*');
+
+        if (detail !== 'all') {
+          query = query.eq('report_month', detail);
+        } else {
+          query = query.like('report_month', `%${year}%`);
+        }
+
+        const { data: reports, error } = await query;
+        if (error) throw error;
+
+        if (!reports || reports.length === 0) {
+          statusEl.className = "p-3 rounded-lg text-xs font-bold text-center bg-amber-100 text-amber-800 block";
+          statusEl.innerText = "Không có file báo cáo nào phù hợp với kỳ đã chọn!";
+          btn.disabled = false;
+          return;
+        }
+
+        statusEl.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Tìm thấy ${reports.length} file. Đang nén...`;
+
+        const zip = new JSZip();
+        let loadedCount = 0;
+
+        for (let i = 0; i < reports.length; i++) {
+          const r = reports[i];
+          statusEl.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Đang tải file ${i + 1}/${reports.length}: <b>${r.file_name}</b>`;
+
+          try {
+            const { data: pUrl } = supabaseClient.storage.from('bao-cao').getPublicUrl(r.file_url);
+            if (pUrl && pUrl.publicUrl) {
+              const resp = await fetch(pUrl.publicUrl);
+              if (resp.ok) {
+                const blob = await resp.blob();
+                const zipFileName = r.file_name || `Bao_Cao_${i + 1}`;
+                zip.file(zipFileName, blob);
+                loadedCount++;
+              }
+            }
+          } catch (fetchErr) {
+            console.error("Lỗi tải file: ", r.file_name, fetchErr);
+          }
+        }
+
+        if (loadedCount === 0) throw new Error("Không thể tải các tệp tin từ Storage.");
+
+        statusEl.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-1"></i> Đang đóng gói tệp .ZIP...`;
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const cleanDetailName = detail === 'all' ? `Nam_${year}` : detail.replace(/[^a-zA-Z0-9]/g, '_');
+        const zipFilename = `Bao_Cao_Tong_Hop_${cleanDetailName}.zip`;
+
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const tempLink = document.createElement('a');
+        tempLink.href = downloadUrl;
+        tempLink.download = zipFilename;
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        URL.revokeObjectURL(downloadUrl);
+
+        statusEl.className = "p-3 rounded-lg text-xs font-bold text-center bg-emerald-100 text-emerald-800 block";
+        statusEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> Đã tải về thành công ${loadedCount} file báo cáo (.ZIP)!`;
+
+      } catch (err) {
+        statusEl.className = "p-3 rounded-lg text-xs font-bold text-center bg-red-100 text-red-800 block";
+        statusEl.innerText = "Lỗi khi nén tải hàng loạt: " + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ================= 10. THỜI HẠN & QUẢN TRỊ TÀI KHOẢN =================
+    async function loadDeadlineSetting() {
+      try {
+        const { data } = await supabaseClient.from('system_settings').select('value').eq('key', 'report_deadline').single();
+        const container = document.getElementById('deadlineContainer');
+        const textEl = document.getElementById('deadlineText');
+        const adminInput = document.getElementById('adminDeadlineInput');
+
+        if (data && data.value) {
+          currentSystemDeadline = new Date(data.value);
+          adminInput.value = data.value;
+          const timePart = currentSystemDeadline.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const datePart = currentSystemDeadline.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          container.className = "bg-blue-50 border border-blue-200 rounded-lg p-2.5 flex items-center gap-2 text-[11px] text-blue-900 font-semibold";
+          textEl.innerHTML = `<i class="fa-solid fa-bell text-blue-600 mr-1"></i> <b>Hạn nộp:</b> Hết ${timePart} ngày ${datePart}`;
+        } else {
+          currentSystemDeadline = null;
+          adminInput.value = "";
+          container.className = "bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-center gap-2 text-[11px] text-amber-800";
+          textEl.innerText = "Kỳ báo cáo hiện chưa cài đặt thời hạn gửi.";
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    async function saveDeadlineSetting() {
+      const val = document.getElementById('adminDeadlineInput').value;
+      const statusEl = document.getElementById('saveDeadlineStatus');
+      statusEl.classList.remove('hidden');
+      statusEl.innerText = "Đang lưu...";
+
+      const valueToSave = val ? val : null;
+
+      const { error } = await supabaseClient.from('system_settings').upsert(
+        [{ key: 'report_deadline', value: valueToSave }], 
+        { onConflict: 'key' }
+      );
+
+      if (error) {
+        alert("Lỗi: " + error.message);
+        statusEl.classList.add('hidden');
+      } else {
+        if (!valueToSave) {
+          statusEl.innerText = "Đã gỡ bỏ thời hạn nộp!";
+        } else {
+          statusEl.innerText = "Đã cập nhật thời hạn thành công!";
+        }
+        await loadDeadlineSetting();
+        await loadDynamicDashboard();
+        setTimeout(() => statusEl.classList.add('hidden'), 2000);
+      }
+    }
+
+    function clearDeadlineSetting() {
+      document.getElementById('adminDeadlineInput').value = '';
+      saveDeadlineSetting();
+    }
+
+    function renderAdminUserTable(usersToRender) {
+      const tbody = document.getElementById('adminUserTableBody');
+      tbody.innerHTML = '';
+      if (!usersToRender || usersToRender.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-400 italic">Không tìm thấy đơn vị nào.</td></tr>`;
+        return;
+      }
+
+      usersToRender.forEach((u, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50";
+        tr.innerHTML = `
+          <td class="p-2.5 text-gray-500 font-medium">${idx + 1}</td>
+          <td class="p-2.5 font-bold text-gray-800">${u.full_name}</td>
+          <td class="p-2.5 text-gray-600 font-semibold">${u.department || '---'}</td>
+          <td class="p-2.5 font-mono text-blue-600 font-semibold">${u.email}</td>
+          <td class="p-2.5 text-center space-x-1">
+            <button onclick="openEditUserModal('${u.id}')" class="px-2 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 font-semibold"><i class="fa-solid fa-pen-to-square"></i> Sửa</button>
+            <button onclick="handleDeleteUser('${u.id}', '${u.full_name}')" class="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded border border-red-200 font-semibold"><i class="fa-solid fa-trash"></i> Xóa</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterAdminUserList() {
+      const query = document.getElementById('adminSearchUser').value.toLowerCase().trim();
+      const filtered = allUserProfiles.filter(u => 
+        (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+        (u.department && u.department.toLowerCase().includes(query)) ||
+        (u.email && u.email.toLowerCase().includes(query))
+      );
+      renderAdminUserTable(filtered);
+    }
+
+    function openEditUserModal(userId) {
+      const user = allUserProfiles.find(u => u.id === userId);
+      if (!user) return;
+      document.getElementById('editUserId').value = user.id;
+      document.getElementById('editFullName').value = user.full_name;
+      document.getElementById('editDepartment').value = user.department;
+      document.getElementById('editEmail').value = user.email;
+      document.getElementById('editPassword').value = user.temp_password || 'Danguy@2026';
+      document.getElementById('editUserModal').classList.remove('hidden');
+    }
+
+    function closeEditUserModal() { document.getElementById('editUserModal').classList.add('hidden'); }
+
+    async function handleSaveEditUser(e) {
+      e.preventDefault();
+      const id = document.getElementById('editUserId').value;
+      const fullName = document.getElementById('editFullName').value.trim();
+      const department = document.getElementById('editDepartment').value.trim();
+      const email = document.getElementById('editEmail').value.trim();
+      const password = document.getElementById('editPassword').value.trim();
+      const btn = document.getElementById('btnSaveUser');
+
+      btn.disabled = true;
+      btn.innerText = "Đang lưu...";
+
+      try {
+        const { error } = await supabaseClient
+          .from('profiles')
+          .update({ full_name: fullName, department: department, email: email, temp_password: password })
+          .eq('id', id);
+
+        if (error) throw error;
+        alert("Cập nhật thông tin thành công!");
+        closeEditUserModal();
+        await loadDynamicDashboard();
+      } catch (err) { alert("Lỗi: " + err.message); } 
+      finally { btn.disabled = false; btn.innerText = "Lưu Thay Đổi"; }
+    }
+
+    function openAddUserModal() {
+      document.getElementById('addFullName').value = '';
+      document.getElementById('addDepartment').value = '';
+      document.getElementById('addEmail').value = '';
+      document.getElementById('addPassword').value = 'Danguy@2026';
+      document.getElementById('addUserModal').classList.remove('hidden');
+    }
+
+    function closeAddUserModal() {
+      document.getElementById('addUserModal').classList.add('hidden');
+    }
+
+    async function handleCreateUserManual(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('addFullName').value.trim();
+      const department = document.getElementById('addDepartment').value.trim();
+      const email = document.getElementById('addEmail').value.trim();
+      const password = document.getElementById('addPassword').value.trim();
+      const btn = document.getElementById('btnAddUserSubmit');
+
+      btn.disabled = true;
+      btn.innerText = "Đang thêm...";
+
+      try {
+        const { error } = await supabaseClient.from('profiles').insert([{
+          full_name: fullName,
+          department: department,
+          email: email,
+          temp_password: password,
+          role: 'user'
+        }]);
+
+        if (error) throw error;
+        alert(`Đã thêm thành công đơn vị "${fullName}"!`);
+        closeAddUserModal();
+        await loadDynamicDashboard();
+      } catch (err) {
+        alert("Lỗi khi thêm đơn vị: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "Xác Nhận Thêm";
+      }
+    }
+
+    async function handleDeleteUser(userId, userName) {
+      if (!confirm(`Bạn có chắc chắn muốn XÓA đơn vị "${userName}" không?`)) return;
+      try {
+        const { error } = await supabaseClient.from('profiles').delete().eq('id', userId);
+        if (error) throw error;
+        alert("Đã xóa đơn vị thành công!");
+        await loadDynamicDashboard();
+      } catch (err) { alert("Lỗi khi xóa: " + err.message); }
+    }
+
+    // ================= 11. ĐIỀU HƯỚNG VÀ EXCEL IMPORT =================
+    function switchTab(tab) {
+      const tabHome = document.getElementById('tabHome');
+      const tabPeriodic = document.getElementById('tabPeriodic');
+      const navHomeBtn = document.getElementById('navHomeBtn');
+      const navPeriodicBtn = document.getElementById('navPeriodicBtn');
+
+      if (tab === 'home') {
+        tabHome.classList.remove('hidden');
+        tabPeriodic.classList.add('hidden');
+        navHomeBtn.className = "active-nav-btn text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition";
+        navPeriodicBtn.className = "hover:bg-white/10 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 transition";
+      } else {
+        tabHome.classList.add('hidden');
+        tabPeriodic.classList.remove('hidden');
+        navPeriodicBtn.className = "active-nav-btn text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition";
+        navHomeBtn.className = "hover:bg-white/10 text-white px-3 py-1.5 rounded text-xs font-medium flex items-center gap-1 transition";
+        updateSenderUnitDisplay();
+      }
+    }
+
+    function updateSenderUnitDisplay() {
+      const unitInput = document.getElementById('reportSenderUnit');
+      if (currentLoggedUser) unitInput.value = currentLoggedUser.full_name;
+      else unitInput.value = "Chưa đăng nhập (Vui lòng bấm Đăng nhập ở góc phải)";
+      updateFileUploadDisplay();
+    }
+
+    function downloadTemplateExcel() {
+      const ws = XLSX.utils.json_to_sheet([
+        { "Khối": "Khối Khu vực", "Tên": "Khu vực 1", "Tên đăng nhập": "khuvuc1", "Mật khẩu": "Danguy@2026" }
+      ]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "DanhSachTaiKhoan");
+      XLSX.writeFile(wb, "Mau_Danh_Sach_Tai_Khoan.xlsx");
+    }
+
+    let parsedUsers = [];
+    function handleExcelPreview(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const data = new Uint8Array(evt.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        parsedUsers = rows.map(r => ({
+          department: r['Khối'] || '', full_name: r['Tên'] || '',
+          email: String(r['Tên đăng nhập'] || '').trim(), password: String(r['Mật khẩu'] || 'Danguy@2026')
+        }));
+        const tbody = document.getElementById('previewTbody');
+        tbody.innerHTML = '';
+        parsedUsers.forEach(u => {
+          tbody.innerHTML += `<tr><td class="p-2 text-blue-600 font-bold">${u.email}</td><td class="p-2">${u.department}</td><td class="p-2">${u.full_name}</td></tr>`;
+        });
+        document.getElementById('previewCount').innerText = `${parsedUsers.length} tài khoản`;
+        document.getElementById('previewContainer').classList.remove('hidden');
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    async function submitAccountsToSystem() {
+      if (parsedUsers.length === 0) return;
+      const statusEl = document.getElementById('uploadStatus');
+      statusEl.classList.remove('hidden');
+      statusEl.className = 'p-2 rounded text-center font-bold bg-amber-100 text-amber-800 text-xs';
+      statusEl.innerText = "Đang nạp vào Supabase...";
+
+      const rows = parsedUsers.map(u => ({
+        email: u.email, full_name: u.full_name, department: u.department, temp_password: u.password, role: 'user'
+      }));
+
+      const { error } = await supabaseClient.from('profiles').upsert(rows, { onConflict: 'email' });
+      if (error) {
+        statusEl.className = 'p-2 rounded text-center font-bold bg-red-100 text-red-800 text-xs';
+        statusEl.innerText = "Lỗi: " + error.message;
+      } else {
+        statusEl.className = 'p-2 rounded text-center font-bold bg-green-100 text-green-800 text-xs';
+        statusEl.innerText = `Đã lưu thành công ${rows.length} tài khoản!`;
+        setTimeout(() => location.reload(), 1200);
+      }
+    }
+
+    // ================= KHỞI TẠO BAN ĐẦU =================
+    window.addEventListener('DOMContentLoaded', () => {
+      // Hỗ trợ kéo thả file
+      const dropZone = document.getElementById('dropZoneContainer');
+      if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-red-500', 'bg-red-50');
+          });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-red-500', 'bg-red-50');
+          });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const dt = e.dataTransfer;
+          const files = Array.from(dt.files);
+          if (files && files.length > 0) {
+            addFilesToList(files);
+          }
+        });
+      }
+
+      refreshAllYearControls();
+      loadDeadlineSetting();
+      checkAuthAndRole().then(() => {
+        loadDynamicDashboard();
+      });
+    });
+  </script>
+</body>
+</html>
