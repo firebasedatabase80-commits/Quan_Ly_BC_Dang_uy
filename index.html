@@ -32,17 +32,23 @@
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
       
       <!-- CỤM TIÊU ĐỀ BÊN TRÁI (KHÔNG BỊ CO ÉP, LUÔN NẰM TRÊN 1 HÀNG) -->
-      <div class="shrink-0">
-        <span class="inline-block bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-yellow-400 mb-1">
-          <i class="fa-solid fa-bullseye text-[9px] mr-1"></i> HỆ THỐNG CHUYỂN ĐỔI SỐ
-        </span>
-        <!-- Đổi thành h2, giảm cỡ chữ vừa vặn và khóa 1 hàng duy nhất -->
-        <h2 class="text-base sm:text-lg lg:text-xl font-black uppercase whitespace-nowrap tracking-tight">
-          ĐẢNG ỦY PHƯỜNG NINH KIỀU - THÀNH PHỐ CẦN THƠ
-        </h2>
-        <p class="text-[11px] sm:text-xs text-red-100 font-light mt-0.5">
-          Cổng Tiếp nhận &amp; Theo dõi tiến độ nộp báo cáo trực tuyến
-        </p>
+      <div class="shrink-0 flex items-center gap-3">
+        
+        <img src="hinhdanguy1.png" alt="Logo Đảng" class="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 drop-shadow-md">
+
+        <!-- Khối chữ nằm bên phải của hình -->
+        <div>
+          <span class="inline-block bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold border border-yellow-400 mb-1">
+            <i class="fa-solid fa-bullseye text-[9px] mr-1"></i> HỆ THỐNG CHUYỂN ĐỔI SỐ
+          </span>
+          <h2 class="text-base sm:text-lg lg:text-xl font-black uppercase whitespace-nowrap tracking-tight">
+            ĐẢNG ỦY PHƯỜNG NINH KIỀU - THÀNH PHỐ CẦN THƠ
+          </h2>
+          <p class="text-[11px] sm:text-xs text-red-100 font-light mt-0.5">
+            Cổng Tiếp nhận &amp; Theo dõi tiến độ nộp báo cáo trực tuyến
+          </p>
+        </div>
+
       </div>
 
       <!-- CỤM THỐNG KÊ BÊN PHẢI (CĂN PHẢI, KHOẢNG CÁCH NHỎ GỌN) -->
@@ -308,22 +314,60 @@
 
   <!-- ================= POPUP FORM ĐĂNG NHẬP ================= -->
   <div id="loginModal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden">
-      <div class="bg-mttq p-4 text-white flex justify-between items-center">
-        <h3 class="font-bold text-sm"><i class="fa-solid fa-user-lock mr-1.5"></i> Đăng nhập hệ thống</h3>
-        <button onclick="toggleLoginModal()" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-gray-100">
+      
+      <!-- PHẦN HEADER CÓ LOGO, TIÊU ĐỀ VÀ GHI CHÚ -->
+      <div class="bg-mttq p-5 text-white text-center relative">
+        <!-- Nút đóng (X) -->
+        <button onclick="toggleLoginModal()" type="button" class="absolute top-3.5 right-3.5 text-white/80 hover:text-white w-7 h-7 flex items-center justify-center rounded-full hover:bg-black/20 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+
+        <!-- Logo Đảng -->
+        <img src="hinhdanguy1.png" alt="Logo Đảng" class="w-14 h-14 mx-auto mb-2 object-contain drop-shadow">
+
+        <!-- Tiêu đề & Chú thích -->
+        <h3 class="font-black text-sm md:text-base tracking-wide uppercase">
+          ĐĂNG NHẬP HỆ THỐNG
+        </h3>
+        <p class="text-[11px] text-red-100 mt-1 font-light">
+          Nhập thông tin tài khoản và mật khẩu đã được cấp
+        </p>
       </div>
+
+      <!-- FORM NHẬP THÔNG TIN TÀI KHOẢN -->
       <form onsubmit="handleLoginSubmit(event)" class="p-6 space-y-4 text-xs">
         <div>
           <label class="block font-semibold text-gray-700 mb-1">Tên đăng nhập:</label>
-          <input type="text" id="loginEmail" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600" placeholder="VD: khuvuc1 hoặc admin@cantho.gov.vn">
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+              <i class="fa-solid fa-user text-xs"></i>
+            </span>
+            <input type="text" id="loginEmail" required 
+                   class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition" 
+                   placeholder="VD: khuvuc1 hoặc admin@cantho.gov.vn">
+          </div>
         </div>
+
         <div>
           <label class="block font-semibold text-gray-700 mb-1">Mật khẩu:</label>
-          <input type="password" id="loginPassword" required class="w-full border border-gray-300 rounded p-2 outline-none focus:border-red-600" placeholder="••••••••">
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+              <i class="fa-solid fa-lock text-xs"></i>
+            </span>
+            <input type="password" id="loginPassword" required 
+                   class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition" 
+                   placeholder="••••••••">
+          </div>
         </div>
-        <button type="submit" id="loginSubmitBtn" class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded transition">Xác Nhận Đăng Nhập</button>
+
+        <button type="submit" id="loginSubmitBtn" 
+                class="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg transition shadow flex items-center justify-center gap-1.5 uppercase text-xs">
+          <i class="fa-solid fa-right-to-bracket"></i>
+          <span>Xác Nhận Đăng Nhập</span>
+        </button>
       </form>
+
     </div>
   </div>
 
